@@ -2,7 +2,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 public class Fitxer {
     
@@ -14,11 +13,12 @@ public class Fitxer {
     }
 
     public byte[] getContingut() throws IOException {
-        File fitxer = new File(Client.DIR_ARRIBADA + "/" + nom);
+        String rutaTemp = System.getProperty("java.io.tmpdir");
+        File fitxer = new File(rutaTemp, nom);
         if (!fitxer.exists()) {
             return null;
         }
-        Path path = Paths.get(fitxer.getName());
+        Path path = fitxer.toPath();
         contingut = Files.readAllBytes(path);
         return contingut;
     }
@@ -28,6 +28,6 @@ public class Fitxer {
     }
 
     public String getRuta() {
-        return new File(Client.DIR_ARRIBADA + "/" + nom).getAbsolutePath();
+        return new File(System.getProperty("java.io.tmpdir"), nom).getAbsolutePath();
     }
 }
