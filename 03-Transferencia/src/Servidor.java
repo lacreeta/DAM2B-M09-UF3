@@ -35,25 +35,39 @@ public class Servidor {
     }
 
     public void enviarFitxers() throws IOException, ClassNotFoundException {
-        ObjectOutputStream output = new ObjectOutputStream(clientSocket.getOutputStream());
-        System.out.println("Esperant el nom del fitxer del client...");
-        ObjectInputStream input = new ObjectInputStream(clientSocket.getInputStream());
-        Fitxer fitxer = new Fitxer((String) input.readObject());
-        System.out.println("Nomfitxer rebut: " + fitxer.getNom());
-        byte[] contingut = fitxer.getContingut();
-        System.out.println("Contingut del fitxer a enviar: " + contingut.length + " bytes");
-        System.out.println("Fitxer enviat al client: " + fitxer.getRuta());
-        output.writeObject(contingut);
-        output.flush();
+        try (ObjectInputStream input = new ObjectInputStream(clientSocket.getInputStream());
+                ObjectOutputStream output = new ObjectOutputStream(clientSocket.getOutputStream())) {
+            while (true) {
+                String nomFitxer = (String) input.readObject();
+                Fitxer fitxer = new Fitxer(nomFitxer);
+
+                if (fitxer.getNom().equalsIgnoreCase("sortir")) {
+                    System.out.println("Client ha demanat sortir.");
+                    break;
+                }
+                System.out.println("Nom fitxer rebut: " + fitxer.getNom());
+                byte[] contingut = fitxer.getContingut();
+                if (contingut == null) {
+                    System.out.println("Error llegint el fitxer del client: null");
+                    output.writeObject(null);
+                    System.out.println("Nom del fitxer buit o nul. Sortint...");
+                    return;
+                } else {
+                    System.out.println("Contingut del fitxer del client: " + contingut.length + " bytes");
+                    System.out.println("Fitxer enviat al client: " + fitxer.getRuta());
+                    output.writeObject(contingut);
+                }
+                output.flush();
+            }
+        }
     }
     
     public static void main(String[] args) {
         Servidor servidor = new Servidor();
         try {
             servidor.connectar();
-            
+            System.out.println("Esperant el nom del fitxer del client...");
             servidor.enviarFitxers();
-            
             servidor.tancarConnexio(servidor.clientSocket);
         } catch (Exception e) {
             e.printStackTrace();

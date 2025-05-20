@@ -9,7 +9,7 @@ public class GestorClients extends Thread {
     private ObjectInputStream input;
     private ServidorXat servidorXat;
     private String nom;
-    private boolean sortir;
+    private boolean sortir = false;
 
     public GestorClients(Socket client, ServidorXat servidorXat) throws IOException {
         this.client = client;
@@ -22,30 +22,37 @@ public class GestorClients extends Thread {
         return nom;
     }
 
-    public void enviaMissatge(String nom, Missatge missatge) throws IOException {
+    public void enviarMissatge(String nom, String missatge) throws IOException {
+        if (missatge == null || missatge.trim().isEmpty()) return;
         output.writeObject("Missatge de (" + nom + "): " + missatge);
+        output.flush();
     }
     
-    public static void processaMissatge(String missatgeRaw) {
+    public void processaMissatge(String missatgeRaw) throws IOException {
         String codi = Missatge.getCodiMissatge(missatgeRaw);
-
+        String[] parts = Missatge.getPartsMissatge(missatgeRaw);
         switch (codi) {
             case Missatge.CODI_CONECTAR:
-                
+                nom = parts[1];
+                servidorXat.afegirClient(this);                
                 break;
             case Missatge.CODI_SORTIR_CLIENT:
-               
+                servidorXat.eliminarClient(nom);
+                sortir = true;
                 break;
             case Missatge.CODI_SORTIR_TOTS:
-
+                sortir = true;
+                servidorXat.finalitzarXat();
                 break;
             case Missatge.CODI_MSG_PERSONAL:
-
+                String destinatari = parts[1];
+                String msg = parts[2];
+                servidorXat.enviarMissatgePersonal(destinatari, nom, msg);
                 break;
             case Missatge.CODI_MSG_GRUP:
-
+                String msgGrupal = parts[1];
+                servidorXat.enviarMissatgeGrup(msgGrupal);
                 break;
-        
             default:
                 // lanza error
                 break;
@@ -56,8 +63,21 @@ public class GestorClients extends Thread {
 
     @Override
     public void run() {
-
-  
+        try {
+            while (!sortir) {
+                String mensajeRaw = (String) input.readObject();
+                processaMissatge(mensajeRaw);
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            System.out.println("Error en comunicación con cliente " + nom + ": " + e.getMessage());
+        } finally {
+            try {
+                servidorXat.eliminarClient(nom);
+                client.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 

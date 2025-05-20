@@ -1,49 +1,38 @@
-import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Scanner;
 
 public class Client {
-    public static final String DIR_ARRIBADA = System.getProperty("java.io.tmpdir");
     private Socket socket;
     private ObjectInputStream input;
     private ObjectOutputStream output;
 
     public void connectar() throws Exception {
         socket = new Socket(Servidor.HOST, Servidor.PORT);
+        output = new ObjectOutputStream(socket.getOutputStream());
+        input = new ObjectInputStream(socket.getInputStream());
         System.out.println("Connectant a -> " + Servidor.HOST + ":" + Servidor.PORT);
         System.out.println("Connexió acceptada: " + socket.getInetAddress());
     }
 
-    public void rebreFitxers() throws IOException, ClassNotFoundException {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Nom del fitxer a rebre ('sortir' per sortir): ");
-        String nomFitxer = scanner.nextLine();
-
-        if (nomFitxer == null || nomFitxer.trim().isEmpty() || nomFitxer.equalsIgnoreCase("sortir")) {
-            System.out.println("Sortint...");
-            scanner.close();
-            return;
-        }
-
-        output = new ObjectOutputStream(socket.getOutputStream());
+    public void rebreFitxers(String nomFitxer, String ruta) throws IOException, ClassNotFoundException {
         output.writeObject(nomFitxer);
         output.flush();
 
-        input = new ObjectInputStream(socket.getInputStream());
         byte[] fitxer = (byte[]) input.readObject();
-
-        String nomFitxerGuardat = DIR_ARRIBADA + File.separator + Paths.get(nomFitxer).getFileName();
-        System.out.println("Nom del fitxer a guardar: " + nomFitxerGuardat);
-
-        Files.write(Paths.get(nomFitxerGuardat), fitxer);
-        System.out.println("Fitxer rebut i guardat com: " + nomFitxerGuardat);
-
-        scanner.close();
+        if (fitxer == null) {
+            return;
+        }
+    
+        Path desti = Paths.get(ruta);
+        Files.write(desti, fitxer);
+        System.out.println("Nom del fitxer a guardar: " + nomFitxer);
+        System.out.println("Fitxer rebut i guardat com: " + desti.toAbsolutePath());
     }
 
     public void tancarConnexio() throws IOException {
@@ -53,12 +42,24 @@ public class Client {
 
     public static void main(String[] args) {
         Client client = new Client();
+        Scanner scanner = new Scanner(System.in);
         try {
             client.connectar();
-            client.rebreFitxers();
+            while (true) {
+                System.out.println("Nom del fitxer a rebre ('sortir' per sortir): ");
+                String nom = scanner.nextLine().trim();
+                if (nom.equalsIgnoreCase("sortir")) {
+                    break;
+                }
+                System.out.print("Ruta local on guardar (ex: C:/Users/Andrés/Desktop/nom.txt): ");
+                String rutaLocal = scanner.nextLine().trim();
+                client.rebreFitxers(nom, rutaLocal);
+            }
             client.tancarConnexio();
         } catch (Exception e) {
-           e.printStackTrace();
+            e.printStackTrace();
+        } finally {
+            scanner.close();
         }
     }
 }
